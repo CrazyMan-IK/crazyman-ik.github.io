@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width" />
+
+        <title>Web Audio API examples: decodeAudioData()</title>
+    </head>
+
+    <body>
+        <h1>Web Audio API examples: decodeAudioData()</h1>
+
+        <button id="loadA">Load MP3</button>
+        <button id="loadB">Load OGG</button>
+        <button id="loadC">Load WAV</button>
+        <button id="loadD">Load AAC</button>
+
+        <br />
+
+        <button id="play" disabled>Play</button>
+        <button id="stop">Stop</button>
+
+        <h2>Set playback rate</h2>
+        <input id="playback-rate-control" type="range" min="0.25" max="3" step="0.05" value="1" disabled />
+        <span id="playback-rate-value">1.0</span>
+
+        <h2>Set loop start and loop end</h2>
+        <input id="loopstart-control" type="range" min="0" max="20" step="1" value="0" disabled />
+        <span id="loopstart-value">0</span>
+
+        <input id="loopend-control" type="range" min="0" max="20" step="1" value="0" disabled />
+        <span id="loopend-value">0</span>
+        <div id="logger" style="background: black; overflow-y: scroll; height: 50vh"></div>
+        <script>
+            const logger = document.getElementById('logger');
+            const originalLog = console.log;
+            const originalWarn = console.warn;
+            const originalError = console.error;
+            console.log = (...args) => {
+                const par = document.createElement('p');
+                par.textContent = args.join('; ');
+                par.style.color = 'white';
+                logger.appendChild(par);
+
+                originalLog(...args);
+            };
+            console.warn = (...args) => {
+                const par = document.createElement('p');
+                par.textContent = args.join('; ');
+                par.style.color = 'yellow';
+                logger.appendChild(par);
+
+                originalWarn(...args);
+            };
+            console.error = (...args) => {
+                const par = document.createElement('p');
+                par.textContent = args.join('; ');
+                par.style.color = 'red';
+                logger.appendChild(par);
+
+                originalError(...args);
+            };
+            window.addEventListener('error', (errorMsg, url, lineNumber) => {
+                const par = document.createElement('p');
+                par.textContent = `${errorMsg}; ${url}; ${lineNumber}`;
+                par.style.color = 'red';
+                logger.appendChild(par);
+            });
+        </script>
+    </body>
+    <script>
+        // define variables
+        const audioCtx = new AudioContext();
+        let source;
+        let buffer;
+
+        const loadA = document.getElementById('loadA');
+        const loadB = document.getElementById('loadB');
+        const loadC = document.getElementById('loadC');
+        const loadD = document.getElementById('loadD');
+
+        const play = document.getElementById('play');
+        const stop = document.getElementById('stop');
+
+        const playbackControl = document.getElementById('playback-rate-control');
+        const playbackValue = document.getElementById('playback-rate-value');
+
+        const loopstartControl = document.getElementById('loopstart-control');
+        const loopstartValue = document.getElementById('loopstart-value');
+
+        const loopendControl = document.getElementById('loopend-control');
+        const loopendValue = document.getElementById('loopend-value');
+
+        loadA.addEventListener('click', () => {
+            getAudio('sound.mp3');
+        });
+        loadA.addEventListener('click', () => {
+            getAudio('sound.ogg');
+        });
+        loadA.addEventListener('click', () => {
+            getAudio('sound.wav');
+        });
+        loadA.addEventListener('click', () => {
+            getAudio('sound.aac');
+        });
+
+        // use XHR to load an audio file and
+        // decodeAudioData to decode it and stick it in in global buffer variable.
+        // We put the buffer into the source in play.onclick().
+        function getAudio(name) {
+            request = new XMLHttpRequest();
+            request.open('GET', name, true);
+            request.responseType = 'arraybuffer';
+            request.onload = () => {
+                let audioData = request.response;
+                audioCtx.decodeAudioData(
+                    audioData,
+                    (buf) => {
+                        buffer = buf;
+                        const max = Math.floor(buf.duration); // in this case buf === global buffer
+                        loopstartControl.max = max;
+                        loopendControl.max = max;
+                        play.disabled = false;
+
+                        console.log(`Loaded: ${name}`);
+                    },
+                    (err) => {
+                        console.error(`Unable to get the audio file: ${name} Error: ${err.message}`);
+                    }
+                );
+            };
+            request.send();
+        }
+
+        play.onclick = () => {
+            source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.playbackRate.value = playbackControl.value;
+            source.connect(audioCtx.destination);
+            source.loop = true;
+            source.start();
+            play.disabled = true;
+            playbackControl.disabled = false;
+            loopstartControl.disabled = false;
+            loopendControl.disabled = false;
+        };
+
+        stop.onclick = () => {
+            source.stop();
+            play.disabled = false;
+            playbackControl.disabled = true;
+            loopstartControl.disabled = true;
+            loopendControl.disabled = true;
+        };
+
+        playbackControl.oninput = () => {
+            source.playbackRate.value = playbackControl.value;
+            playbackValue.textContent = playbackControl.value;
+        };
+
+        loopstartControl.oninput = () => {
+            source.loopStart = loopstartControl.value;
+            loopstartValue.textContent = loopstartControl.value;
+        };
+
+        loopendControl.oninput = () => {
+            source.loopEnd = loopendControl.value;
+            loopendValue.textContent = loopendControl.value;
+        };
+    </script>
+</html>
